@@ -1,0 +1,22 @@
+:root {
+  --bg: #0f1216; --card: #1a1f27; --line: #2a323d; --fg: #e8ecf1;
+  --mut: #8a95a3; --acc: #4f8cff; --ok: #37c871; --err: #ff5d5d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+a { color: var(--acc); text-decoration: none; cursor: pointer; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 60px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--mut); font-size: 13px; margin-bottom: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lbl { font-size: 13px; color: var(--mut); margin-bottom: 6px; }
+input, select, textarea { width: 100%; background: #10141a; border: 1px solid var(--line);
+  color: var(--fg); border-radius: 9px; padding: 10px 12px; font: inherit; margin-bottom: 12px; }
+button { background: var(--acc); color: #fff; border: 0; border-radius: 10px;
+  padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .5; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--mut); margin-right: 6px; }
+.proj { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+.ok { color: var(--ok); } .err { color: var(--err); }
