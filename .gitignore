@@ -1,0 +1,5 @@
+.claude
+.idea
+./frontend/node_modules
+./web/node_modules
+.venv
