@@ -2,6 +2,7 @@ import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "reactf
 import { useEffect, useMemo } from "react";
 import type { GraphNodeData } from "../types";
 import { allInputs, categoryAccent, declType, isWidgetType, socketColor } from "../graph";
+import { NODE_HINTS } from "../hints";
 import { useStore } from "../store";
 import { uploadFile } from "../api";
 
@@ -39,6 +40,7 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
 
   const inputs = allInputs(def);
   const requiredNames = new Set(Object.keys(def.input.required || {}));
+  const hint = NODE_HINTS[def.name];
   const st = STATUS[data.status || "idle"] || STATUS.idle;
   const accent = categoryAccent(def.category);
 
@@ -51,6 +53,11 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
         <span className="dot" style={{ background: st.color }} title={st.label} />
         <span className="title">{def.name}</span>
         {def.is_cloud_task && <span className="badge">云任务</span>}
+        {data.status && data.status !== "idle" && (
+          <span className="stat-badge" style={{ background: st.color }}>
+            {st.label}
+          </span>
+        )}
         <span className="grow" />
         <button title="锁定：重跑时不动它" className={`mini ${data.pinned ? "on" : ""}`} onClick={() => togglePin(id)}>
           📌
@@ -64,6 +71,7 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
       </div>
 
       <div className="vnode-body">
+        {hint?.desc && <div className="node-desc">{hint.desc}</div>}
         {inputs.map(([name, spec]) => {
           const t = spec[0];
           const opts = spec[1] || {};
@@ -76,12 +84,13 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
             <div className={`port in ${widget ? "has-widget" : ""} ${needsLink ? "need-link" : ""}`} key={"in-" + name}>
               <Handle id={"in:" + name} type="target" position={Position.Left}
                       className="vh" style={{ background: socketColor(declType(t)) }} />
-              <div className="port-label">
+              <div className="port-label" title={hint?.inputs?.[name] || ""}>
                 {name}
                 {needsLink && <span className="need-tag">需连接</span>}
                 {isUpload && <UploadButton onUploaded={(names) =>
                   updateNodeValue(id, "paths", [(data.values.paths || "").trim(), ...names].filter(Boolean).join("\n"))} />}
               </div>
+              {hint?.inputs?.[name] && <div className="port-hint">{hint.inputs[name]}</div>}
               {widget && (
                 <Widget t={t} opts={opts} value={data.values[name]}
                         onChange={(v) => updateNodeValue(id, name, v)} />
@@ -99,13 +108,20 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
         ))}
 
         {(data.preview || []).map((p, i) =>
-          p.url && p.type === "image" ? (
-            <img key={i} className="preview" src={p.url} />
-          ) : p.url && (p.type === "video" || p.type === "final") ? (
-            <video key={i} className="preview" src={p.url} controls />
-          ) : p.url && p.type === "audio" ? (
-            <audio key={i} className="preview-audio" src={p.url} controls />
-          ) : null
+          !p.url ? null : (
+            <div className="preview-wrap" key={i}>
+              {p.type === "image" ? (
+                <img className="preview" src={p.url} />
+              ) : p.type === "video" || p.type === "final" ? (
+                <video className="preview" src={p.url} controls />
+              ) : p.type === "audio" ? (
+                <audio className="preview-audio" src={p.url} controls />
+              ) : null}
+              <a className="dl" href={p.url} download target="_blank" rel="noreferrer" title="下载/在新标签打开">
+                ⬇ 下载
+              </a>
+            </div>
+          )
         )}
         {data.error && <div className="err">{data.error}</div>}
       </div>

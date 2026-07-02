@@ -116,7 +116,12 @@ async def execute_graph(g: ParsedGraph, ctx: ExecutionContext,
         inst = cls()
         ctx.current_node_id = nid
         ctx.emit("executing", {"class_type": ct})
-        outputs = await inst.execute(ctx, **resolved)
+        try:
+            outputs = await inst.execute(ctx, **resolved)
+        except Exception as e:
+            # 标记具体出错节点（前端据此把该节点变红），再抛给上层做整体 execution_error
+            ctx.emit("node_error", {"class_type": ct, "error": f"{ct}: {e}"})
+            raise
         if not isinstance(outputs, tuple):
             raise TypeError(f"节点 {nid}({ct}) 必须返回 tuple，实际 {type(outputs)}")
         results[nid] = outputs

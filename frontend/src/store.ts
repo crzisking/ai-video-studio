@@ -121,7 +121,35 @@ export const useStore = create<State>((set, get) => ({
         nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...p } } : n)),
       }));
 
-    if (type === "queued") set({ queueRemaining: data.remaining ?? 0, runError: null });
+    // —— 全局事件（无 node 字段）先处理 ——
+    if (type === "queued") {
+      set({ queueRemaining: data.remaining ?? 0, runError: null });
+      return;
+    }
+    if (type === "execution_done") {
+      // 收尾：还挂着 queued/executing 的（未参与执行的孤立节点）归位 idle
+      set((s) => ({
+        nodes: s.nodes.map((n) =>
+          n.data.status === "queued" || n.data.status === "executing"
+            ? { ...n, data: { ...n.data, status: "idle" } }
+            : n
+        ),
+      }));
+      return;
+    }
+    if (type === "execution_error") {
+      set((s) => ({
+        runError: data.error || "执行出错",
+        nodes: s.nodes.map((n) =>
+          n.data.status === "queued" || n.data.status === "executing"
+            ? { ...n, data: { ...n.data, status: "idle" } }
+            : n
+        ),
+      }));
+      return;
+    }
+
+    // —— 节点级事件 ——
     if (!nodeId) return;
     switch (type) {
       case "executing":
@@ -131,15 +159,18 @@ export const useStore = create<State>((set, get) => ({
         patch(nodeId, { status: "cached" });
         break;
       case "executed":
-        patch(nodeId, { status: "done", preview: data.outputs });
+        // outputs 为空（如 Preview 这类终端节点）时不要覆盖已收到的 preview
+        patch(nodeId, {
+          status: "done",
+          ...(data.outputs && data.outputs.length ? { preview: data.outputs } : {}),
+        });
         break;
       case "preview":
       case "final":
         patch(nodeId, { status: "done", preview: [{ type: data.type || "video", url: data.url }] });
         break;
-      case "execution_error":
+      case "node_error":
         patch(nodeId, { status: "error", error: data.error });
-        set({ runError: data.error });
         break;
     }
   },

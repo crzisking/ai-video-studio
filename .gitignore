@@ -1,5 +1,8 @@
-.claude
-.idea
-./frontend/node_modules
-./web/node_modules
-.venv
+/.claude
+/.idea
+/frontend/node_modules
+/web/node_modules
+/.venv
+/backend/data
+/frontend/dist
+/web/dist
