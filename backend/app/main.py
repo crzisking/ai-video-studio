@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings, OUTPUT_DIR, UPLOAD_DIR
 from app.core.db import init_db
 from app.engine.registry import load_all_nodes
-from app.api import health, prompt as prompt_api
+from app.api import health, prompt as prompt_api, agent as agent_api
 
 app = FastAPI(title="AI 短视频生成平台（节点图引擎）", version="0.2.0")
 
@@ -26,6 +26,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(prompt_api.router)
+app.include_router(agent_api.router)
 
 app.mount("/media", StaticFiles(directory=OUTPUT_DIR), name="media")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

@@ -11,10 +11,12 @@ import { useStore } from "./store";
 import { fetchObjectInfo, connectWS } from "./api";
 import { allInputs, categoryAccent, compatible } from "./graph";
 import { STARTER_KEY } from "./templates";
+import { loadAutosave, saveAutosave, serializeGraph } from "./storage";
 import DynamicNode from "./components/DynamicNode";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import Legend from "./components/Legend";
+import ChatPanel from "./components/ChatPanel";
 import "./styles.css";
 
 export default function App() {
@@ -34,14 +36,24 @@ function Editor() {
     fetchObjectInfo()
       .then((oi) => {
         setObjectInfo(oi);
-        // 首次打开自动加载入门模板，避免空白画布让人不知如何下手
         const st = useStore.getState();
-        if (st.nodes.length === 0) st.loadTemplate(STARTER_KEY);
+        if (st.nodes.length > 0) return;
+        // 优先恢复上次自动保存的图；没有才加载入门模板
+        const saved = loadAutosave();
+        if (saved && saved.nodes?.length) st.loadSavedGraph(saved);
+        else st.loadTemplate(STARTER_KEY);
       })
       .catch((e) => console.error(e));
     const ws = connectWS(applyWsEvent);
     return () => ws.close();
   }, []);
+
+  // 自动保存：图变动后防抖写入 localStorage
+  useEffect(() => {
+    if (nodes.length === 0 && edges.length === 0) return;
+    const t = setTimeout(() => saveAutosave(serializeGraph(nodes, edges)), 500);
+    return () => clearTimeout(t);
+  }, [nodes, edges]);
 
   // 类型安全连线：源输出类型 vs 目标输入声明类型
   const isValidConnection = (c: Connection): boolean => {
@@ -93,6 +105,7 @@ function Editor() {
             </div>
           )}
           <Legend />
+          <ChatPanel />
         </div>
       </div>
     </div>

@@ -16,6 +16,24 @@ RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4"]
 RESOLUTIONS = ["480P", "720P", "1080P"]
 
 
+async def _ensure_local(ctx, ref, kind: str, tag: str, ext: str) -> str:
+    """确保媒体有本地文件路径：上游是生成节点(远程URL)时先下载下来。"""
+    if ref is None:
+        raise RuntimeError(f"{tag}: 缺少输入")
+    if ref.local_path and os.path.exists(ref.local_path):
+        return ref.local_path
+    url = ref.url or ""
+    if url.startswith("http"):
+        got = await asyncio.to_thread(ctx.download, url, unique(tag, ext).split(os.sep)[-1], kind, {})
+        return got.local_path
+    if url.startswith("/media/"):
+        from app.core.config import OUTPUT_DIR
+        p = os.path.join(OUTPUT_DIR, os.path.basename(url))
+        if os.path.exists(p):
+            return p
+    raise RuntimeError(f"{tag}: 拿不到可用的本地文件（url={url or '空'}）")
+
+
 @register
 class VideoI2V(NodeBase):
     """首/尾帧 + 运动描述 → 视频。可选音频做音画同步（仅阿里）。"""
@@ -129,12 +147,10 @@ class Avatar(NodeBase):
         if prov != "aliyun":
             raise RuntimeError("数字人目前仅阿里支持")
         avp = get_provider(prov, "avatar")
-        if not (audio.local_path and os.path.exists(audio.local_path)):
-            raise RuntimeError("数字人需要本地音频文件")
-        portrait_src = portrait.local_path if portrait.local_path else None
-        if not portrait_src:
-            raise RuntimeError("数字人需要本地肖像图")
-        audio_oss = await asyncio.to_thread(aliyun_temp_upload, creds["api_key"], audio.local_path)
+        # 上游若来自生成节点（GenImage/TTS 产出的是远程 URL），先落到本地再上传 OSS
+        audio_src = await _ensure_local(ctx, audio, "audio", "avatar_audio", "mp3")
+        portrait_src = await _ensure_local(ctx, portrait, "image", "avatar_portrait", "png")
+        audio_oss = await asyncio.to_thread(aliyun_temp_upload, creds["api_key"], audio_src)
         portrait_oss = await asyncio.to_thread(aliyun_temp_upload, creds["api_key"], portrait_src)
         url = await ctx.run_cloud(
             submit=lambda: avp.submit(creds, portrait_oss, audio_oss, resolution),

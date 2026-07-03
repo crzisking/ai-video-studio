@@ -12,6 +12,7 @@ export default defineConfig({
       "/object_info": backend,
       "/prompt": backend,
       "/history": backend,
+      "/agent": backend,
       "/upload": backend,
       "/media": backend,
       "/uploads": backend,

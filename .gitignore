@@ -6,3 +6,6 @@
 /backend/data
 /frontend/dist
 /web/dist
+
+# ffmpeg 二进制太大不入库；每台机器各自准备（见 backend/tools/ffmpeg/README.md）
+/backend/tools/ffmpeg/*.exe

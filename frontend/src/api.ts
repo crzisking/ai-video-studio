@@ -42,6 +42,29 @@ export async function uploadFile(file: File): Promise<{ names: string[]; urls: s
   return r.json();
 }
 
+export async function requestPlan(
+  message: string,
+  creds: Record<string, any>,
+  provider: string,
+  refCount: number
+): Promise<any> {
+  const r = await fetch("/agent/plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, creds, provider, ref_count: refCount }),
+  });
+  if (!r.ok) {
+    let msg = "规划失败";
+    try {
+      msg = (await r.json()).detail || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
 // WebSocket：实时事件回传
 export function connectWS(onMessage: (msg: any) => void): WebSocket {
   const proto = location.protocol === "https:" ? "wss" : "ws";

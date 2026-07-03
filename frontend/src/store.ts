@@ -11,8 +11,16 @@ import {
 } from "reactflow";
 import type { CredsMap, GraphNodeData, ObjectInfo } from "./types";
 import { defaultValues, serialize } from "./graph";
-import { submitPrompt } from "./api";
+import { submitPrompt, requestPlan } from "./api";
 import { TEMPLATES } from "./templates";
+import { compilePlan, type Plan } from "./compiler";
+import { deserializeGraph, saveWorkflow, serializeGraph, type SavedGraph } from "./storage";
+
+export interface ChatMsg {
+  role: "user" | "assistant" | "error";
+  text: string;
+  plan?: Plan;
+}
 
 let _id = 1;
 const nextId = () => String(_id++);
@@ -36,10 +44,17 @@ interface State {
   deleteNode: (id: string) => void;
   loadTemplate: (key: string) => void;
   clearGraph: () => void;
+  loadSavedGraph: (g: SavedGraph) => void;
+  saveCurrentWorkflow: (name: string) => void;
   togglePin: (id: string) => void;
   applyWsEvent: (msg: any) => void;
   run: () => Promise<void>;
   rerunNode: (id: string) => Promise<void>;
+
+  chat: ChatMsg[];
+  agentBusy: boolean;
+  sendAgentMessage: (message: string) => Promise<void>;
+  applyPlan: (plan: Plan) => void;
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -50,6 +65,8 @@ export const useStore = create<State>((set, get) => ({
   promptId: null,
   queueRemaining: 0,
   runError: null,
+  chat: [],
+  agentBusy: false,
 
   setObjectInfo: (oi) => set({ objectInfo: oi }),
   setCreds: (provider, c) => set((s) => ({ creds: { ...s.creds, [provider]: c } })),
@@ -104,6 +121,18 @@ export const useStore = create<State>((set, get) => ({
   },
 
   clearGraph: () => set({ nodes: [], edges: [], promptId: null, runError: null }),
+
+  loadSavedGraph: (g) => {
+    const { objectInfo } = get();
+    const graph = deserializeGraph(g, objectInfo);
+    _id = Math.max(_id, 1000);
+    set({ nodes: graph.nodes, edges: graph.edges, promptId: null, runError: null });
+  },
+
+  saveCurrentWorkflow: (name) => {
+    const { nodes, edges } = get();
+    saveWorkflow(name, serializeGraph(nodes, edges), Date.now());
+  },
 
   togglePin: (id) =>
     set((s) => ({
@@ -199,6 +228,31 @@ export const useStore = create<State>((set, get) => ({
     } catch (e: any) {
       set({ runError: String(e.message || e) });
     }
+  },
+
+  sendAgentMessage: async (message) => {
+    const { creds } = get();
+    // 选一个已填 key 的厂商，默认 aliyun（规划器 = 该厂商的文本模型）
+    const provider = creds.aliyun?.api_key ? "aliyun" : creds.volcano?.api_key ? "volcano" : "aliyun";
+    const refCount = get().nodes.filter((n) => n.data.classType === "LoadReference").length;
+    set((s) => ({ chat: [...s.chat, { role: "user", text: message }], agentBusy: true }));
+    try {
+      const plan: Plan = await requestPlan(message, creds, provider, refCount);
+      const lines = (plan.shots || [])
+        .map((sh, i) => `${i + 1}. [${sh.type}] ${sh.prompt || sh.portrait_prompt || sh.script || ""}`)
+        .join("\n");
+      const text = `📋 ${plan.title || "方案"}（${plan.aspect}）\n${plan.summary || ""}\n\n分镜：\n${lines}`;
+      set((s) => ({ chat: [...s.chat, { role: "assistant", text, plan }], agentBusy: false }));
+    } catch (e: any) {
+      set((s) => ({ chat: [...s.chat, { role: "error", text: String(e.message || e) }], agentBusy: false }));
+    }
+  },
+
+  applyPlan: (plan) => {
+    const { objectInfo } = get();
+    const g = compilePlan(plan, objectInfo);
+    _id = Math.max(_id, 1000);
+    set({ nodes: g.nodes, edges: g.edges, promptId: null, runError: null });
   },
 }));
 

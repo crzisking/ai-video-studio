@@ -2,10 +2,10 @@ import type { Edge, Node } from "reactflow";
 import type { GraphNodeData, ObjectInfo } from "./types";
 import { defaultValues } from "./graph";
 
-type NodeSpec = { id: string; type: string; pos: [number, number]; values?: Record<string, any> };
-type EdgeSpec = [string, number, string, string]; // [源节点, 源槽位, 目标节点, 目标输入名]
+export type NodeSpec = { id: string; type: string; pos: [number, number]; values?: Record<string, any> };
+export type EdgeSpec = [string, number, string, string]; // [源节点, 源槽位, 目标节点, 目标输入名]
 
-function build(oi: ObjectInfo, nodes: NodeSpec[], edges: EdgeSpec[]): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
+export function build(oi: ObjectInfo, nodes: NodeSpec[], edges: EdgeSpec[]): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const ns = nodes
     .filter((n) => oi[n.type])
     .map((n) => ({

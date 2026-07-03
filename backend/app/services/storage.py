@@ -27,7 +27,8 @@ def aliyun_temp_upload(api_key: str, local_path: str, model: str = "wan2.7-i2v-2
     import dashscope
     from dashscope.utils.oss_utils import check_and_upload_local
     dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
-    ok, url = check_and_upload_local(model, "file://" + os.path.abspath(local_path), api_key)
+    # dashscope 1.26 起返回 (ok, url, cert) 三元组；用 * 兼容多出来的值
+    ok, url, *_ = check_and_upload_local(model, "file://" + os.path.abspath(local_path), api_key)
     return url
 
 
