@@ -6,6 +6,13 @@ import { NODE_HINTS } from "../hints";
 import { useStore } from "../store";
 import { uploadFile } from "../api";
 
+// 支持直接上传的输入：节点名 → {输入名, 文件类型, 是否多行追加}
+const UPLOADABLE: Record<string, { input: string; accept: string; append: boolean }> = {
+  LoadReference: { input: "paths", accept: "image/*,video/*", append: true },
+  LoadImage: { input: "name", accept: "image/*", append: false },
+  CloneVoice: { input: "name", accept: "audio/*", append: false },
+};
+
 const STATUS: Record<string, { color: string; label: string }> = {
   idle: { color: "#5a5a5a", label: "待运行" },
   queued: { color: "#b58900", label: "排队中" },
@@ -77,7 +84,8 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
           const opts = spec[1] || {};
           const isConn = connected.has(name);
           const widget = isWidgetType(t) && !isConn;
-          const isUpload = def.name === "LoadReference" && name === "paths";
+          const up = UPLOADABLE[def.name];
+          const isUpload = !!up && name === up.input;
           // 必填、且只能靠连线的端口（非 widget 类型），未连时高亮提示
           const needsLink = requiredNames.has(name) && !isWidgetType(t) && !isConn;
           return (
@@ -87,8 +95,14 @@ export default function DynamicNode({ id, data, selected }: NodeProps<GraphNodeD
               <div className="port-label" title={hint?.inputs?.[name] || ""}>
                 {name}
                 {needsLink && <span className="need-tag">需连接</span>}
-                {isUpload && <UploadButton onUploaded={(names) =>
-                  updateNodeValue(id, "paths", [(data.values.paths || "").trim(), ...names].filter(Boolean).join("\n"))} />}
+                {isUpload && <UploadButton accept={up.accept} onUploaded={(names) =>
+                  updateNodeValue(
+                    id,
+                    up.input,
+                    up.append
+                      ? [(data.values[up.input] || "").trim(), ...names].filter(Boolean).join("\n")
+                      : names[0] || ""
+                  )} />}
               </div>
               {hint?.inputs?.[name] && <div className="port-hint">{hint.inputs[name]}</div>}
               {widget && (
@@ -155,11 +169,11 @@ function Widget({ t, opts, value, onChange }:
   return <input className="w" type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)} />;
 }
 
-function UploadButton({ onUploaded }: { onUploaded: (names: string[]) => void }) {
+function UploadButton({ accept, onUploaded }: { accept?: string; onUploaded: (names: string[]) => void }) {
   return (
     <label className="upload">
       ＋上传
-      <input type="file" style={{ display: "none" }} onChange={async (e) => {
+      <input type="file" accept={accept} style={{ display: "none" }} onChange={async (e) => {
         const f = e.target.files?.[0];
         if (!f) return;
         const r = await uploadFile(f);

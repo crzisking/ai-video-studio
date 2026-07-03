@@ -20,6 +20,7 @@ export interface Plan {
   narration_text?: string;
   voice?: string;
   use_refs?: boolean;
+  portrait_edit?: string; // 对用户照片做图生图加工（换背景/增强）的指令
   summary?: string;
 }
 
@@ -41,7 +42,11 @@ export function compilePlan(
   nodes.push({ id: "prov", type: "ProviderNode", pos: [40, baseY], values: { provider } });
 
   // 需要参考主体？（use_refs 或含 r2v 镜头）
-  const needRef = plan.use_refs || plan.shots.some((s) => s.type === "r2v");
+  // 只有会被真正接线时才创建 LoadReference：有 r2v 镜头，或 use_refs+有图+存在场景出图(GenImage)消费它
+  const hasSceneGen = plan.shots.some((s) => s.type === "i2v" || s.type === "first_last");
+  const needRef =
+    plan.shots.some((s) => s.type === "r2v") ||
+    (!!plan.use_refs && refNames.length > 0 && hasSceneGen);
   if (needRef)
     nodes.push({
       id: "ref",
@@ -50,7 +55,34 @@ export function compilePlan(
       values: { paths: refNames.join("\n") },
     });
 
+  // 用户上传了人物照片 → 数字人肖像直接用照片（共享一个 LoadImage）
+  const hasAvatarShot = plan.shots.some((s) => s.type === "avatar");
+  const usePhotoPortrait = hasAvatarShot && refNames.length > 0;
+  // 有 portrait_edit 时插一步图生图：照片 → GenImage(换背景/增强) → 肖像
+  const editPortrait = usePhotoPortrait && !!(plan.portrait_edit || "").trim();
+  let portraitSrc = "pimg"; // 数字人肖像的来源节点
+  if (usePhotoPortrait) {
+    nodes.push({
+      id: "pimg",
+      type: "LoadImage",
+      pos: [40, baseY - 220],
+      values: { name: refNames[0] },
+    });
+    if (editPortrait) {
+      nodes.push({
+        id: "pedit",
+        type: "GenImage",
+        pos: [40, baseY - 480],
+        values: { prompt: plan.portrait_edit || "", ratio },
+      });
+      edges.push(["prov", 0, "pedit", "provider"], ["pimg", 0, "pedit", "init_image"]);
+      portraitSrc = "pedit";
+    }
+  }
+
   const videoIds: string[] = []; // 各镜头产出视频的节点 id
+  // use_refs 时场景出图也挂参考主体，保持人物/产品一致（LoadReference 不再空挂）
+  const wireSceneRefs = needRef && refNames.length > 0;
 
   plan.shots.forEach((s, i) => {
     const x = 340 + i * COL;
@@ -62,6 +94,7 @@ export function compilePlan(
       nodes.push({ id: vi, type: "VideoI2V", pos: [x + 200, 200], values: { motion: s.motion || "", duration: s.duration || 5, ratio } });
       edges.push(["prov", 0, g1, "provider"], ["prov", 0, g2, "provider"], ["prov", 0, vi, "provider"]);
       edges.push([g1, 0, g2, "init_image"], [g1, 0, vi, "first"], [g2, 0, vi, "last"]);
+      if (wireSceneRefs) edges.push(["ref", 0, g1, "refs"], ["ref", 0, g2, "refs"]);
       videoIds.push(vi);
     } else if (s.type === "r2v") {
       const vr = `${pre}_vr`;
@@ -69,12 +102,19 @@ export function compilePlan(
       edges.push(["prov", 0, vr, "provider"], ["ref", 0, vr, "refs"]);
       videoIds.push(vr);
     } else if (s.type === "avatar") {
-      const p = `${pre}_p`, t = `${pre}_t`, av = `${pre}_av`;
-      nodes.push({ id: p, type: "GenImage", pos: [x, 40], values: { prompt: s.portrait_prompt || "", ratio } });
+      const t = `${pre}_t`, av = `${pre}_av`;
       nodes.push({ id: t, type: "TTS", pos: [x, 360], values: { text: s.script || "", voice: plan.voice || "longxiaochun_v2" } });
       nodes.push({ id: av, type: "Avatar", pos: [x + 200, 200] });
-      edges.push(["prov", 0, p, "provider"], ["prov", 0, t, "provider"], ["prov", 0, av, "provider"]);
-      edges.push([p, 0, av, "portrait"], [t, 0, av, "audio"]);
+      edges.push(["prov", 0, t, "provider"], ["prov", 0, av, "provider"]);
+      if (usePhotoPortrait) {
+        // 用户照片（或其图生图加工版）当肖像
+        edges.push([portraitSrc, 0, av, "portrait"]);
+      } else {
+        const p = `${pre}_p`;
+        nodes.push({ id: p, type: "GenImage", pos: [x, 40], values: { prompt: s.portrait_prompt || "", ratio } });
+        edges.push(["prov", 0, p, "provider"], [p, 0, av, "portrait"]);
+      }
+      edges.push([t, 0, av, "audio"]);
       videoIds.push(av);
     } else {
       // i2v（默认）
@@ -82,6 +122,7 @@ export function compilePlan(
       nodes.push({ id: g, type: "GenImage", pos: [x, 80], values: { prompt: s.prompt || "", ratio } });
       nodes.push({ id: vi, type: "VideoI2V", pos: [x + 200, 220], values: { motion: s.motion || "", duration: s.duration || 5, ratio } });
       edges.push(["prov", 0, g, "provider"], ["prov", 0, vi, "provider"], [g, 0, vi, "first"]);
+      if (wireSceneRefs) edges.push(["ref", 0, g, "refs"]);
       videoIds.push(vi);
     }
   });

@@ -236,12 +236,18 @@ export const useStore = create<State>((set, get) => ({
   },
 
   sendAgentMessage: async (message, assets = []) => {
-    const { creds } = get();
+    const { creds, chat } = get();
     // 选一个已填 key 的厂商，默认 aliyun（规划器 = 该厂商的文本模型）
     const provider = creds.aliyun?.api_key ? "aliyun" : creds.volcano?.api_key ? "volcano" : "aliyun";
+    // 多轮：回喂上一版方案；这轮没传图则沿用之前传过的图
+    const lastPlanMsg = [...chat].reverse().find((m) => m.plan);
+    if (assets.length === 0) {
+      const lastAssetsMsg = [...chat].reverse().find((m) => m.assets && m.assets.length > 0);
+      assets = lastAssetsMsg?.assets || [];
+    }
     set((s) => ({ chat: [...s.chat, { role: "user", text: message, assets }], agentBusy: true }));
     try {
-      const plan: Plan = await requestPlan(message, creds, provider, assets);
+      const plan: Plan = await requestPlan(message, creds, provider, assets, lastPlanMsg?.plan);
       const lines = (plan.shots || [])
         .map((sh, i) => `${i + 1}. [${sh.type}] ${sh.prompt || sh.portrait_prompt || sh.script || ""}`)
         .join("\n");

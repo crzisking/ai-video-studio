@@ -1,11 +1,44 @@
 # -*- coding: utf-8 -*-
-"""音频节点：文本转语音(TTS)。"""
+"""音频节点：文本转语音(TTS) / 声音复刻(CloneVoice)。"""
 import asyncio
+import os
 from app.engine.node import NodeBase
 from app.engine.registry import register
 from app.engine.types import PROVIDER, TEXT, AUDIO
+from app.core.config import UPLOAD_DIR
 from app.providers.registry import get_provider
 from app.services.storage import unique
+
+
+@register
+class CloneVoice(NodeBase):
+    """声音复刻：给一段参考音频（10秒~1分钟、人声清晰），注册出专属音色。
+    输出 voice_id，接到 TTS 的 voice 上，之后念任何文本都是这个声音。
+    可缓存：同一段音频只注册一次，不重复扣费。"""
+    CATEGORY = "音频"
+    RETURN_TYPES = (TEXT,)
+    RETURN_NAMES = ("voice",)
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "provider": (PROVIDER, {}),
+                "name": (TEXT, {"default": ""}),   # 已上传到 uploads/ 的音频文件名
+            },
+        }
+
+    async def execute(self, ctx, provider, name):
+        prov, creds = provider.provider, provider.creds
+        fname = (name or "").strip().replace("/uploads/", "")
+        local = os.path.join(UPLOAD_DIR, fname)
+        if not fname or not os.path.exists(local):
+            raise RuntimeError(f"参考音频不存在：{fname or '(空)'}；请先上传音频并填文件名")
+        ttsp = get_provider(prov, "tts")
+        if not hasattr(ttsp, "clone"):
+            raise RuntimeError(f"{prov} 暂不支持声音复刻")
+        vid = await asyncio.to_thread(ttsp.clone, creds, local)
+        return (vid,)
 
 
 @register

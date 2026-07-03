@@ -31,12 +31,23 @@ export const NODE_HINTS: Record<string, NodeHint> = {
     inputs: {
       provider: "连 ProviderNode（阿里）。",
       text: "要朗读的文稿。",
-      voice: "音色名，如 longxiaochun_v2。",
+      voice: "音色名，如 longxiaochun_v2；或连 CloneVoice 用复刻的声音。",
+    },
+  },
+  CloneVoice: {
+    desc: "声音复刻：上传一段参考音频（10秒~1分钟、人声清晰），输出专属音色，接到 TTS 的 voice 上。同一段音频只注册一次（缓存）。",
+    inputs: {
+      provider: "连 ProviderNode（阿里）。",
+      name: "参考音频文件名，点「＋上传」选音频自动填。",
     },
   },
   LoadReference: {
     desc: "导入本地素材（图片/主体参考）。点「＋上传」选文件，输出参考主体给下游。",
     inputs: { paths: "上传的文件名，一行一个。用右侧「＋上传」自动填。" },
+  },
+  LoadImage: {
+    desc: "加载一张已上传的图片，输出普通图像。可直接接数字人肖像、视频首帧、图生图底图。",
+    inputs: { name: "上传后的文件名（uploads/ 里那个）。" },
   },
   VideoI2V: {
     desc: "图生视频：给一张首帧图，按运动描述生成一段视频。可再给尾帧做首尾帧过渡。",

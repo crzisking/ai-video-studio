@@ -41,6 +41,26 @@ class LoadReference(NodeBase):
 
 
 @register
+class LoadImage(NodeBase):
+    """加载单张本地图片（已上传到 uploads/），输出 IMAGE。
+    与 LoadReference 的区别：这里是普通图像，可直接接 Avatar 肖像、VideoI2V 首帧、GenImage 底图。"""
+    CATEGORY = "输入"
+    RETURN_TYPES = (IMAGE,)
+    RETURN_NAMES = ("image",)
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"name": ("TEXT", {"default": ""})}}
+
+    async def execute(self, ctx, name):
+        name = (name or "").strip().replace("/uploads/", "")
+        local = os.path.join(UPLOAD_DIR, name)
+        if not name or not os.path.exists(local):
+            raise RuntimeError(f"图片不存在：{name or '(空)'}；请先上传素材并填文件名")
+        return (MediaRef(url="/uploads/" + name, kind="image", local_path=local),)
+
+
+@register
 class PreviewImage(NodeBase):
     """预览图像（终端节点）。仅用于在画布上看结果，无产物。"""
     CATEGORY = "输出"

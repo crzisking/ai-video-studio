@@ -16,6 +16,27 @@ RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4"]
 RESOLUTIONS = ["480P", "720P", "1080P"]
 
 
+def _fit_image_for_cloud(path: str, min_side: int = 400, max_side: int = 7000) -> str:
+    """把图片缩放到云接口允许的尺寸区间（如阿里 s2v 要求最短边>400、最长边<7000）。
+    合规则原样返回；否则等比缩放后另存一份返回新路径。"""
+    from PIL import Image
+    from app.core.config import OUTPUT_DIR
+    img = Image.open(path)
+    w, h = img.size
+    scale = 1.0
+    if min(w, h) < min_side:
+        scale = (min_side + 8) / min(w, h)          # 略超过下限，避免舍入踩线
+    if max(w, h) * scale > max_side:
+        scale = (max_side - 8) / max(w, h)
+    if scale == 1.0:
+        return path
+    nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+    img = img.convert("RGB").resize((nw, nh), Image.LANCZOS)
+    out = os.path.join(OUTPUT_DIR, unique("fit", "png"))
+    img.save(out, "PNG")
+    return out
+
+
 async def _ensure_local(ctx, ref, kind: str, tag: str, ext: str) -> str:
     """确保媒体有本地文件路径：上游是生成节点(远程URL)时先下载下来。"""
     if ref is None:
@@ -150,6 +171,8 @@ class Avatar(NodeBase):
         # 上游若来自生成节点（GenImage/TTS 产出的是远程 URL），先落到本地再上传 OSS
         audio_src = await _ensure_local(ctx, audio, "audio", "avatar_audio", "mp3")
         portrait_src = await _ensure_local(ctx, portrait, "image", "avatar_portrait", "png")
+        # s2v 对肖像尺寸有硬要求（最短边>400、最长边<7000），自动缩放到合规
+        portrait_src = await asyncio.to_thread(_fit_image_for_cloud, portrait_src)
         audio_oss = await asyncio.to_thread(aliyun_temp_upload, creds["api_key"], audio_src)
         portrait_oss = await asyncio.to_thread(aliyun_temp_upload, creds["api_key"], portrait_src)
         url = await ctx.run_cloud(

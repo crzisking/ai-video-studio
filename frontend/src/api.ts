@@ -46,12 +46,13 @@ export async function requestPlan(
   message: string,
   creds: Record<string, any>,
   provider: string,
-  assets: { name: string; url?: string }[]
+  assets: { name: string; url?: string }[],
+  prevPlan?: any
 ): Promise<any> {
   const r = await fetch("/agent/plan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, creds, provider, assets }),
+    body: JSON.stringify({ message, creds, provider, assets, prev_plan: prevPlan ?? null }),
   });
   if (!r.ok) {
     let msg = "规划失败";
