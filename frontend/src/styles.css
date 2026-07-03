@@ -245,6 +245,19 @@ select.w { cursor: pointer; }
   border-radius: 8px; padding: 7px 9px; font-size: 12.5px; font-family: inherit; resize: none; outline: none; }
 .chat-input textarea:focus { border-color: var(--accent); }
 .chat-input .run { padding: 6px 14px; }
+.attach-btn { display: flex; align-items: center; justify-content: center; width: 36px; border: 1px solid var(--line);
+  background: var(--panel-2); border-radius: 8px; cursor: pointer; font-size: 16px; }
+.attach-btn:hover { border-color: var(--accent); }
+.chat-attach { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; }
+.attach-item { position: relative; }
+.attach-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
+.attach-item span { display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.attach-item button { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; border: none;
+  background: #c0392b; color: #fff; font-size: 10px; line-height: 16px; cursor: pointer; padding: 0; }
+.msg-thumbs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; justify-content: flex-end; }
+.msg-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.thumb-name { font-size: 11px; color: var(--muted); background: var(--panel-2); border-radius: 5px; padding: 3px 6px; }
 
 /* 图例 */
 .legend { position: absolute; right: 14px; top: 14px; z-index: 5; width: 150px;

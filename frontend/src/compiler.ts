@@ -23,8 +23,12 @@ export interface Plan {
   summary?: string;
 }
 
-// 方案 → 节点图（确定性拼装，保证合法）
-export function compilePlan(plan: Plan, oi: ObjectInfo): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
+// 方案 → 节点图（确定性拼装，保证合法）。refNames = 用户上传的参考图文件名。
+export function compilePlan(
+  plan: Plan,
+  oi: ObjectInfo,
+  refNames: string[] = []
+): { nodes: Node<GraphNodeData>[]; edges: Edge[] } {
   const nodes: NodeSpec[] = [];
   const edges: EdgeSpec[] = [];
   const ratio = plan.aspect || "9:16";
@@ -38,7 +42,13 @@ export function compilePlan(plan: Plan, oi: ObjectInfo): { nodes: Node<GraphNode
 
   // 需要参考主体？（use_refs 或含 r2v 镜头）
   const needRef = plan.use_refs || plan.shots.some((s) => s.type === "r2v");
-  if (needRef) nodes.push({ id: "ref", type: "LoadReference", pos: [40, baseY + 220] });
+  if (needRef)
+    nodes.push({
+      id: "ref",
+      type: "LoadReference",
+      pos: [40, baseY + 220],
+      values: { paths: refNames.join("\n") },
+    });
 
   const videoIds: string[] = []; // 各镜头产出视频的节点 id
 

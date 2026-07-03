@@ -17,7 +17,7 @@ class PlanReq(BaseModel):
     message: str
     creds: dict = {}
     provider: str = "aliyun"
-    ref_count: int = 0
+    assets: list = []   # [{name, url}] 用户上传的参考图
 
 
 @router.post("/plan")
@@ -25,7 +25,7 @@ async def plan(req: PlanReq):
     if not req.message.strip():
         raise HTTPException(400, "请描述你想要的视频")
     try:
-        p = await asyncio.to_thread(make_plan, req.message, req.creds, req.provider, req.ref_count)
+        p = await asyncio.to_thread(make_plan, req.message, req.creds, req.provider, req.assets)
     except Exception as e:
         raise HTTPException(400, str(e))
     return p.model_dump()

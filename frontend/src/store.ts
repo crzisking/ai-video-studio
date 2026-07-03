@@ -16,10 +16,15 @@ import { TEMPLATES } from "./templates";
 import { compilePlan, type Plan } from "./compiler";
 import { deserializeGraph, saveWorkflow, serializeGraph, type SavedGraph } from "./storage";
 
+export interface Asset {
+  name: string;
+  url?: string;
+}
 export interface ChatMsg {
   role: "user" | "assistant" | "error";
   text: string;
   plan?: Plan;
+  assets?: Asset[];
 }
 
 let _id = 1;
@@ -53,8 +58,8 @@ interface State {
 
   chat: ChatMsg[];
   agentBusy: boolean;
-  sendAgentMessage: (message: string) => Promise<void>;
-  applyPlan: (plan: Plan) => void;
+  sendAgentMessage: (message: string, assets?: Asset[]) => Promise<void>;
+  applyPlan: (plan: Plan, assets?: Asset[]) => void;
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -230,27 +235,27 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  sendAgentMessage: async (message) => {
+  sendAgentMessage: async (message, assets = []) => {
     const { creds } = get();
     // 选一个已填 key 的厂商，默认 aliyun（规划器 = 该厂商的文本模型）
     const provider = creds.aliyun?.api_key ? "aliyun" : creds.volcano?.api_key ? "volcano" : "aliyun";
-    const refCount = get().nodes.filter((n) => n.data.classType === "LoadReference").length;
-    set((s) => ({ chat: [...s.chat, { role: "user", text: message }], agentBusy: true }));
+    set((s) => ({ chat: [...s.chat, { role: "user", text: message, assets }], agentBusy: true }));
     try {
-      const plan: Plan = await requestPlan(message, creds, provider, refCount);
+      const plan: Plan = await requestPlan(message, creds, provider, assets);
       const lines = (plan.shots || [])
         .map((sh, i) => `${i + 1}. [${sh.type}] ${sh.prompt || sh.portrait_prompt || sh.script || ""}`)
         .join("\n");
       const text = `📋 ${plan.title || "方案"}（${plan.aspect}）\n${plan.summary || ""}\n\n分镜：\n${lines}`;
-      set((s) => ({ chat: [...s.chat, { role: "assistant", text, plan }], agentBusy: false }));
+      set((s) => ({ chat: [...s.chat, { role: "assistant", text, plan, assets }], agentBusy: false }));
     } catch (e: any) {
       set((s) => ({ chat: [...s.chat, { role: "error", text: String(e.message || e) }], agentBusy: false }));
     }
   },
 
-  applyPlan: (plan) => {
+  applyPlan: (plan, assets = []) => {
     const { objectInfo } = get();
-    const g = compilePlan(plan, objectInfo);
+    const refNames = assets.map((a) => a.name).filter(Boolean);
+    const g = compilePlan(plan, objectInfo, refNames);
     _id = Math.max(_id, 1000);
     set({ nodes: g.nodes, edges: g.edges, promptId: null, runError: null });
   },

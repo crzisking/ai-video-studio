@@ -100,7 +100,7 @@ def make_plan(message: str, creds: dict, provider: str = "aliyun", assets: list 
     last_err = None
     for attempt in range(2):
         sys = SYSTEM if attempt == 0 else SYSTEM + "\n\n上次输出无法解析，请**只输出**一个合法 JSON 对象。"
-        raw = text_llm.complete(prov_creds, sys, user)
+        raw = text_llm.complete(prov_creds, sys, user, images=image_urls or None)
         try:
             data = _extract_json(raw)
             plan = Plan(**data)
